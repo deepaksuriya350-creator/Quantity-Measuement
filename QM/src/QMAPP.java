@@ -1,38 +1,44 @@
 public class QMAPP {
 
-    // =========================
-    // ENUM: LENGTH UNITS
-    // Base Unit = INCH
-    // =========================
+    // =========================================================
+    // STANDALONE UNIT (UC8 REFACTOR)
+    // Responsibility: ONLY conversion logic
+    // =========================================================
     enum LengthUnit {
-        INCH(1.0),
-        FEET(12.0),
-        YARD(36.0),
-        CENTIMETER(0.393701);
 
-        private final double toInchFactor;
+        INCH(1.0 / 12.0),
+        FEET(1.0),
+        YARD(3.0),
+        CENTIMETER(1.0 / 30.48);
 
-        LengthUnit(double toInchFactor) {
-            this.toInchFactor = toInchFactor;
+        private final double toFeetFactor;
+
+        LengthUnit(double toFeetFactor) {
+            this.toFeetFactor = toFeetFactor;
         }
 
-        public double toBase(double value) {
-            return value * toInchFactor;
+        // Convert value in THIS unit → BASE UNIT (FEET)
+        public double convertToBaseUnit(double value) {
+            return value * toFeetFactor;
         }
 
-        public double fromBase(double baseValue) {
-            return baseValue / toInchFactor;
+        // Convert value in BASE UNIT (FEET) → THIS unit
+        public double convertFromBaseUnit(double baseValue) {
+            return baseValue / toFeetFactor;
         }
 
         public double getFactor() {
-            return toInchFactor;
+            return toFeetFactor;
         }
     }
 
-    // =========================
-    // VALUE OBJECT: QUANTITY
-    // UC5 + UC6 + UC7
-    // =========================
+    // =========================================================
+    // VALUE OBJECT (UC8 SIMPLIFIED)
+    // Responsibility:
+    // - arithmetic
+    // - equality
+    // - delegation to LengthUnit
+    // =========================================================
     static class Quantity {
 
         private final double value;
@@ -46,70 +52,52 @@ public class QMAPP {
         }
 
         // -------------------------
-        // Base Conversion
+        // Delegation to Unit
         // -------------------------
         private double toBase() {
-            return unit.toBase(value);
+            return unit.convertToBaseUnit(value);
         }
 
-        // =========================
-        // UC5: Conversion API
-        // =========================
+        // =========================================================
+        // UC5: Conversion (delegates to LengthUnit)
+        // =========================================================
         public Quantity convertTo(LengthUnit targetUnit) {
-            double result = convert(value, unit, targetUnit);
-            return new Quantity(result, targetUnit);
+            validateTarget(targetUnit);
+
+            double base = this.toBase();
+            double converted = targetUnit.convertFromBaseUnit(base);
+
+            return new Quantity(converted, targetUnit);
         }
 
-        public static double convert(double value, LengthUnit source, LengthUnit target) {
-            validate(value, source);
-
-            if (target == null) {
-                throw new IllegalArgumentException("Target unit cannot be null");
-            }
-
-            double result = value * (source.getFactor() / target.getFactor());
-
-            if (!Double.isFinite(result)) {
-                throw new ArithmeticException("Conversion overflow");
-            }
-
-            return result;
-        }
-
-        // =========================
-        // UC6: ADD (default unit = first operand)
-        // =========================
+        // =========================================================
+        // UC6: Add (default = first operand unit)
+        // =========================================================
         public Quantity add(Quantity other) {
             return add(other, this.unit);
         }
 
-        // =========================
-        // UC7: ADD with explicit target unit
-        // =========================
+        // =========================================================
+        // UC7: Add with explicit target unit
+        // =========================================================
         public Quantity add(Quantity other, LengthUnit targetUnit) {
 
             if (other == null) {
-                throw new IllegalArgumentException("Second operand cannot be null");
+                throw new IllegalArgumentException("Other quantity cannot be null");
             }
 
-            if (targetUnit == null) {
-                throw new IllegalArgumentException("Target unit cannot be null");
-            }
+            validateTarget(targetUnit);
 
-            // Convert both operands to base (INCH)
-            double sumBase = this.toBase() + other.toBase();
+            double sumInBase =
+                    this.unit.convertToBaseUnit(this.value)
+                            + other.unit.convertToBaseUnit(other.value);
 
-            if (!Double.isFinite(sumBase)) {
-                throw new ArithmeticException("Invalid arithmetic result");
-            }
+            double result = targetUnit.convertFromBaseUnit(sumInBase);
 
-            // Convert to explicitly requested unit
-            double resultValue = targetUnit.fromBase(sumBase);
-
-            return new Quantity(resultValue, targetUnit);
+            return new Quantity(result, targetUnit);
         }
 
-        // Static overload (UC7 style API)
+        // Static UC7 style API
         public static Quantity add(Quantity q1, Quantity q2, LengthUnit targetUnit) {
             if (q1 == null || q2 == null) {
                 throw new IllegalArgumentException("Operands cannot be null");
@@ -117,15 +105,16 @@ public class QMAPP {
             return q1.add(q2, targetUnit);
         }
 
-        // =========================
-        // EQUALITY (UC4/UC5)
-        // =========================
+        // =========================================================
+        // UC4/UC5/UC8: Equality using BASE UNIT
+        // =========================================================
         @Override
         public boolean equals(Object obj) {
             if (this == obj) return true;
             if (!(obj instanceof Quantity)) return false;
 
             Quantity other = (Quantity) obj;
+
             return Math.abs(this.toBase() - other.toBase()) < EPSILON;
         }
 
@@ -139,9 +128,9 @@ public class QMAPP {
             return "Quantity(" + value + ", " + unit + ")";
         }
 
-        // =========================
+        // =========================================================
         // VALIDATION
-        // =========================
+        // =========================================================
         private static void validate(double value, LengthUnit unit) {
             if (unit == null) {
                 throw new IllegalArgumentException("Unit cannot be null");
@@ -150,52 +139,44 @@ public class QMAPP {
                 throw new IllegalArgumentException("Value must be finite");
             }
         }
+
+        private static void validateTarget(LengthUnit unit) {
+            if (unit == null) {
+                throw new IllegalArgumentException("Target unit cannot be null");
+            }
+        }
     }
 
-    // =========================
-    // DEMO (UC5 + UC6 + UC7)
-    // =========================
+    // =========================================================
+    // DEMO (UC5 → UC8)
+    // =========================================================
     public static void main(String[] args) {
 
-        Quantity oneFoot = new Quantity(1.0, LengthUnit.FEET);
-        Quantity twelveInch = new Quantity(12.0, LengthUnit.INCH);
-        Quantity threeFeet = new Quantity(3.0, LengthUnit.FEET);
+        Quantity q1 = new Quantity(1.0, LengthUnit.FEET);
+        Quantity q2 = new Quantity(12.0, LengthUnit.INCH);
+        Quantity q3 = new Quantity(1.0, LengthUnit.YARD);
 
-        // UC6 (default unit = first operand)
-        System.out.println(oneFoot.add(twelveInch));
-        // Quantity(2.0, FEET)
+        // UC5: conversion
+        System.out.println(q1.convertTo(LengthUnit.INCH));
+        // 12 INCH
 
-        // UC7: explicit FEET
-        System.out.println(oneFoot.add(twelveInch, LengthUnit.FEET));
-        // Quantity(2.0, FEET)
+        // UC6: default addition
+        System.out.println(q1.add(q2));
+        // 2 FEET
 
-        // UC7: explicit INCH
-        System.out.println(oneFoot.add(twelveInch, LengthUnit.INCH));
-        // Quantity(24.0, INCH)
-
-        // UC7: explicit YARD
-        System.out.println(oneFoot.add(twelveInch, LengthUnit.YARD));
+        // UC7: explicit target unit
+        System.out.println(q1.add(q2, LengthUnit.YARD));
         // ~0.667 YARD
 
-        // UC7: YARD + FEET → YARD
+        // UC8: refactored equality (same behavior, new architecture)
         System.out.println(
-                new Quantity(1.0, LengthUnit.YARD)
-                        .add(threeFeet, LengthUnit.YARD)
+                new Quantity(36.0, LengthUnit.INCH)
+                        .equals(new Quantity(1.0, LengthUnit.YARD))
         );
-        // Quantity(2.0, YARD)
+        // true
 
-        // UC7: zero case
-        System.out.println(
-                new Quantity(5.0, LengthUnit.FEET)
-                        .add(new Quantity(0.0, LengthUnit.INCH), LengthUnit.YARD)
-        );
-        // ~1.667 YARD
-
-        // UC7: negative values
-        System.out.println(
-                new Quantity(5.0, LengthUnit.FEET)
-                        .add(new Quantity(-2.0, LengthUnit.FEET), LengthUnit.INCH)
-        );
-        // 36 INCH
+        // UC8: different target units
+        System.out.println(q3.add(q1.add(q2), LengthUnit.FEET));
+        // 6 FEET (1 yard + 2 feet)
     }
 }
