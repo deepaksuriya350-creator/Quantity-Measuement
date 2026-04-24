@@ -1,23 +1,25 @@
 public class QMAPP {
 
 
-        // Enum representing supported length units
+        // Enum with ALL units using a single base unit (INCHES)
         enum LengthUnit {
-            FEET(1.0),
-            INCH(1.0 / 12.0); // 1 inch = 1/12 feet
+            INCH(1.0),
+            FEET(12.0),
+            YARD(36.0),
+            CENTIMETER(0.393701);
 
-            private final double toFeetFactor;
+            private final double toInchFactor;
 
-            LengthUnit(double toFeetFactor) {
-                this.toFeetFactor = toFeetFactor;
+            LengthUnit(double toInchFactor) {
+                this.toInchFactor = toInchFactor;
             }
 
             public double toBase(double value) {
-                return value * toFeetFactor;
+                return value * toInchFactor;
             }
         }
 
-        // Unified Quantity class (DRY applied)
+        // Unified Quantity class (unchanged from UC3 – proves scalability)
         static class Quantity {
             private final double value;
             private final LengthUnit unit;
@@ -31,7 +33,7 @@ public class QMAPP {
             }
 
             private double toBaseUnit() {
-                return unit.toBase(value); // convert to feet
+                return unit.toBase(value); // convert to inches
             }
 
             @Override
@@ -56,14 +58,17 @@ public class QMAPP {
             }
         }
 
-        // Demo (replaces earlier UC1 + UC2 logic)
+        // Demo
         public static void main(String[] args) {
 
-            Quantity q1 = new Quantity(1.0, LengthUnit.FEET);
-            Quantity q2 = new Quantity(12.0, LengthUnit.INCH);
-            Quantity q3 = new Quantity(2.0, LengthUnit.FEET);
+            Quantity yard = new Quantity(1.0, LengthUnit.YARD);
+            Quantity feet = new Quantity(3.0, LengthUnit.FEET);
+            Quantity inches = new Quantity(36.0, LengthUnit.INCH);
+            Quantity cm = new Quantity(1.0, LengthUnit.CENTIMETER);
+            Quantity inchEquivalent = new Quantity(0.393701, LengthUnit.INCH);
 
-            System.out.println(q1 + " == " + q2 + " → " + q1.equals(q2)); // true
-            System.out.println(q1 + " == " + q3 + " → " + q1.equals(q3)); // false
+            System.out.println(yard + " == " + feet + " → " + yard.equals(feet));     // true
+            System.out.println(yard + " == " + inches + " → " + yard.equals(inches)); // true
+            System.out.println(cm + " == " + inchEquivalent + " → " + cm.equals(inchEquivalent)); // true
         }
     }
