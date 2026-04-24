@@ -26,7 +26,7 @@ public class QMAPP {
         }
     }
 
-    // Unified Quantity class
+    // Unified Quantity class (UC5 + UC6)
     static class Quantity {
         private final double value;
         private final LengthUnit unit;
@@ -38,24 +38,27 @@ public class QMAPP {
             this.unit = unit;
         }
 
+        // Convert to base unit (INCHES)
         private double toBaseUnit() {
-            return unit.toBase(value); // convert to inches
+            return unit.toBase(value);
         }
 
-        // ✅ UC5: Instance conversion method
+        // =========================
+        // UC5: Conversion Methods
+        // =========================
+
         public Quantity convertTo(LengthUnit targetUnit) {
             double convertedValue = convert(this.value, this.unit, targetUnit);
             return new Quantity(convertedValue, targetUnit);
         }
 
-        // ✅ UC5: Static conversion API
         public static double convert(double value, LengthUnit source, LengthUnit target) {
             validate(value, source);
+
             if (target == null) {
                 throw new IllegalArgumentException("Target unit cannot be null");
             }
 
-            // Direct formula (more stable)
             double result = value * (source.getFactor() / target.getFactor());
 
             if (!Double.isFinite(result)) {
@@ -65,14 +68,48 @@ public class QMAPP {
             return result;
         }
 
+        // =========================
+        // UC6: ADDITION (NEW)
+        // =========================
+
+        public Quantity add(Quantity other) {
+            if (other == null) {
+                throw new IllegalArgumentException("Other quantity cannot be null");
+            }
+
+            // Convert both to base unit (INCHES)
+            double thisBase = this.toBaseUnit();
+            double otherBase = other.toBaseUnit();
+
+            double sumBase = thisBase + otherBase;
+
+            if (!Double.isFinite(sumBase)) {
+                throw new ArithmeticException("Invalid addition result");
+            }
+
+            // Convert back to FIRST operand unit
+            double resultValue = this.unit.fromBase(sumBase);
+
+            return new Quantity(resultValue, this.unit);
+        }
+
+        public static Quantity add(Quantity q1, Quantity q2) {
+            if (q1 == null || q2 == null) {
+                throw new IllegalArgumentException("Operands cannot be null");
+            }
+            return q1.add(q2);
+        }
+
+        // =========================
+        // Equality (UC4/UC5)
+        // =========================
+
         @Override
         public boolean equals(Object obj) {
             if (this == obj) return true;
-
-            if (obj == null || getClass() != obj.getClass()) return false;
+            if (!(obj instanceof Quantity)) return false;
 
             Quantity other = (Quantity) obj;
-
             return Math.abs(this.toBaseUnit() - other.toBaseUnit()) < EPSILON;
         }
 
@@ -86,6 +123,10 @@ public class QMAPP {
             return value + " " + unit;
         }
 
+        // =========================
+        // Validation
+        // =========================
+
         private static void validate(double value, LengthUnit unit) {
             if (unit == null) {
                 throw new IllegalArgumentException("Unit cannot be null");
@@ -96,35 +137,57 @@ public class QMAPP {
         }
     }
 
-    // ✅ UC5 Demonstration Methods (Method Overloading)
+    // =========================
+    // Demo (UC5 + UC6)
+    // =========================
 
-    public static void demonstrateLengthConversion(double value, LengthUnit from, LengthUnit to) {
-        double result = Quantity.convert(value, from, to);
-        System.out.println(value + " " + from + " → " + result + " " + to);
-    }
-
-    public static void demonstrateLengthConversion(Quantity quantity, LengthUnit to) {
-        System.out.println(quantity + " → " + quantity.convertTo(to));
-    }
-
-    // Demo
     public static void main(String[] args) {
 
-        // UC4 Equality
+        // UC4: Equality
         Quantity yard = new Quantity(1.0, LengthUnit.YARD);
         Quantity feet = new Quantity(3.0, LengthUnit.FEET);
         System.out.println(yard + " == " + feet + " → " + yard.equals(feet));
 
-        // UC5 Conversion
-        demonstrateLengthConversion(1.0, LengthUnit.FEET, LengthUnit.INCH); // 12
-        demonstrateLengthConversion(3.0, LengthUnit.YARD, LengthUnit.FEET); // 9
-        demonstrateLengthConversion(36.0, LengthUnit.INCH, LengthUnit.YARD); // 1
+        // UC5: Conversion
+        System.out.println(Quantity.convert(1.0, LengthUnit.FEET, LengthUnit.INCH));
+        System.out.println(Quantity.convert(3.0, LengthUnit.YARD, LengthUnit.FEET));
+        System.out.println(Quantity.convert(36.0, LengthUnit.INCH, LengthUnit.YARD));
 
         Quantity cm = new Quantity(2.54, LengthUnit.CENTIMETER);
-        demonstrateLengthConversion(cm, LengthUnit.INCH); // ~1 inch
+        System.out.println(cm.convertTo(LengthUnit.INCH));
 
-        // Edge cases
-        demonstrateLengthConversion(0.0, LengthUnit.FEET, LengthUnit.INCH);
-        demonstrateLengthConversion(-1.0, LengthUnit.FEET, LengthUnit.INCH);
+        // =========================
+        // UC6: ADDITION TESTS
+        // =========================
+
+        System.out.println(
+                new Quantity(1.0, LengthUnit.FEET)
+                        .add(new Quantity(2.0, LengthUnit.FEET))
+        ); // 3 FEET
+
+        System.out.println(
+                new Quantity(1.0, LengthUnit.FEET)
+                        .add(new Quantity(12.0, LengthUnit.INCH))
+        ); // 2 FEET
+
+        System.out.println(
+                new Quantity(12.0, LengthUnit.INCH)
+                        .add(new Quantity(1.0, LengthUnit.FEET))
+        ); // 24 INCH
+
+        System.out.println(
+                new Quantity(1.0, LengthUnit.YARD)
+                        .add(new Quantity(3.0, LengthUnit.FEET))
+        ); // 2 YARD
+
+        System.out.println(
+                new Quantity(5.0, LengthUnit.FEET)
+                        .add(new Quantity(0.0, LengthUnit.INCH))
+        ); // 5 FEET
+
+        System.out.println(
+                new Quantity(5.0, LengthUnit.FEET)
+                        .add(new Quantity(-2.0, LengthUnit.FEET))
+        ); // 3 FEET
     }
 }
