@@ -1,34 +1,37 @@
 public class QMAPP {
 
-        // Enum to represent units and conversion logic
-        enum Unit {
-            FEET(12.0),
-            INCH(1.0);
 
-            private final double toInchFactor;
+        // Enum representing supported length units
+        enum LengthUnit {
+            FEET(1.0),
+            INCH(1.0 / 12.0); // 1 inch = 1/12 feet
 
-            Unit(double toInchFactor) {
-                this.toInchFactor = toInchFactor;
+            private final double toFeetFactor;
+
+            LengthUnit(double toFeetFactor) {
+                this.toFeetFactor = toFeetFactor;
             }
 
             public double toBase(double value) {
-                return value * toInchFactor;
+                return value * toFeetFactor;
             }
         }
 
-        // Quantity class representing value + unit
+        // Unified Quantity class (DRY applied)
         static class Quantity {
             private final double value;
-            private final Unit unit;
+            private final LengthUnit unit;
 
-            public Quantity(double value, Unit unit) {
+            public Quantity(double value, LengthUnit unit) {
+                if (unit == null) {
+                    throw new IllegalArgumentException("Unit cannot be null");
+                }
                 this.value = value;
                 this.unit = unit;
             }
 
-            // Convert everything to base unit (inches)
             private double toBaseUnit() {
-                return unit.toBase(value);
+                return unit.toBase(value); // convert to feet
             }
 
             @Override
@@ -46,34 +49,21 @@ public class QMAPP {
             public int hashCode() {
                 return Double.hashCode(toBaseUnit());
             }
+
+            @Override
+            public String toString() {
+                return value + " " + unit;
+            }
         }
 
-        // Utility methods (reduces dependency on main)
-        public static boolean compareFeet(double a, double b) {
-            Quantity q1 = new Quantity(a, Unit.FEET);
-            Quantity q2 = new Quantity(b, Unit.FEET);
-            return q1.equals(q2);
-        }
-
-        public static boolean compareInches(double a, double b) {
-            Quantity q1 = new Quantity(a, Unit.INCH);
-            Quantity q2 = new Quantity(b, Unit.INCH);
-            return q1.equals(q2);
-        }
-
-        public static boolean compareMixed(double feet, double inches) {
-            Quantity q1 = new Quantity(feet, Unit.FEET);
-            Quantity q2 = new Quantity(inches, Unit.INCH);
-            return q1.equals(q2);
-        }
-
-        // Main method (demo)
+        // Demo (replaces earlier UC1 + UC2 logic)
         public static void main(String[] args) {
 
-            System.out.println("Feet vs Feet (1.0, 1.0): " + compareFeet(1.0, 1.0));
-            System.out.println("Inch vs Inch (1.0, 1.0): " + compareInches(1.0, 1.0));
-            System.out.println("Feet vs Inches (1 ft, 12 in): " + compareMixed(1.0, 12.0));
-            System.out.println("Feet vs Inches (1 ft, 11 in): " + compareMixed(1.0, 11.0));
+            Quantity q1 = new Quantity(1.0, LengthUnit.FEET);
+            Quantity q2 = new Quantity(12.0, LengthUnit.INCH);
+            Quantity q3 = new Quantity(2.0, LengthUnit.FEET);
+
+            System.out.println(q1 + " == " + q2 + " → " + q1.equals(q2)); // true
+            System.out.println(q1 + " == " + q3 + " → " + q1.equals(q3)); // false
         }
     }
-
